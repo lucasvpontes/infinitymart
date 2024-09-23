@@ -1,14 +1,20 @@
 package com.commerce.infinitymart.infrastructure.controller;
 
 import com.commerce.infinitymart.core.domain.cart.Cart;
-import com.commerce.infinitymart.core.service.CartService;
-import com.commerce.infinitymart.infrastructure.controller.response.CartResponse;
-import com.commerce.infinitymart.infrastructure.util.MapperUtils;
+import com.commerce.infinitymart.core.service.cart.CartService;
+import com.commerce.infinitymart.infrastructure.dto.request.CartRequest;
+import com.commerce.infinitymart.infrastructure.dto.response.cart.CartProductResponse;
+import com.commerce.infinitymart.infrastructure.dto.response.cart.CartResponse;
+import com.commerce.infinitymart.infrastructure.dto.response.product.ProductResponse;
+import java.util.Collections;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,14 +25,30 @@ public class CartController {
 
   private final CartService cartService;
 
-  @GetMapping("/add/{productId}")
-  public ResponseEntity<CartResponse> addProductToCart(@PathVariable final Long productId) {
-    final var cart = cartService.addProductToCart(productId);
+  @PostMapping("/add")
+  public ResponseEntity<CartResponse> addProductToCart(@RequestBody final CartRequest request) {
+    final var cart = cartService.addProductToCart(request);
+    final var cartResponse = toResponse(cart);
+    return ResponseEntity.ok().body(cartResponse);
+  }
+
+  @DeleteMapping("/remove")
+  public ResponseEntity<CartResponse> removeProductFromCart(@RequestBody final CartRequest request) {
+    final var cart = cartService.removeProductFromCart(request);
     final var cartResponse = toResponse(cart);
     return ResponseEntity.ok().body(cartResponse);
   }
 
   private static CartResponse toResponse(Cart cart) {
-    return MapperUtils.map(cart, CartResponse.class);
+    return CartResponse.builder()
+        .cartProducts(Optional.ofNullable(cart.getCartProducts())
+            .orElse(Collections.emptySet())
+            .stream()
+            .map(cartProduct -> CartProductResponse.builder()
+                .product(ProductResponse.builder().id(cartProduct.getProduct().getId()).build())
+                .quantity(cartProduct.getQuantity())
+                .build()).collect(Collectors.toSet()))
+        .buyerId(cart.getBuyer().getId())
+        .build();
   }
 }
